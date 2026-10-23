@@ -29,6 +29,7 @@ import {
   orderItemsByPreferredIds,
   pinOrderKeyBetween,
   reduceSidebarProjectScopeMenuState,
+  resolveSidebarProjectScopeSelection,
   resolveAdjacentThreadId,
   resolveProjectStatusIndicator,
   resolveSidebarSweepKeys,
@@ -45,6 +46,7 @@ import {
   shouldClearThreadSelectionOnMouseDown,
   shouldShowSidebarV2Duration,
   shouldRecedeSidebarThread,
+  toggleSidebarProjectScopeKey,
   sortLogicalProjectsForSidebar,
   sortInboxThreadsByReturn,
   resolveSidebarDropTarget,
@@ -1142,6 +1144,57 @@ describe("filterSidebarProjectScopeItems", () => {
   it("returns matching projects in source order and supports no-match results", () => {
     expect(filter("WORK")).toEqual([items[1]]);
     expect(filter("missing")).toEqual([]);
+  });
+});
+
+describe("toggleSidebarProjectScopeKey", () => {
+  it("adds and removes one project without disturbing the rest", () => {
+    expect(toggleSidebarProjectScopeKey([], "alpha")).toEqual(["alpha"]);
+    expect(toggleSidebarProjectScopeKey(["alpha"], "beta")).toEqual(["alpha", "beta"]);
+    expect(toggleSidebarProjectScopeKey(["alpha", "beta"], "alpha")).toEqual(["beta"]);
+    expect(toggleSidebarProjectScopeKey(["alpha"], "alpha")).toEqual([]);
+  });
+});
+
+describe("resolveSidebarProjectScopeSelection", () => {
+  it("starts a filter from the all-projects state", () => {
+    expect(
+      resolveSidebarProjectScopeSelection({ scopeKeys: [], selectedValues: ["all", "alpha"] }),
+    ).toEqual(["alpha"]);
+  });
+
+  it("toggles projects while others stay selected", () => {
+    expect(
+      resolveSidebarProjectScopeSelection({
+        scopeKeys: ["alpha"],
+        selectedValues: ["alpha", "beta"],
+      }),
+    ).toEqual(["alpha", "beta"]);
+    expect(
+      resolveSidebarProjectScopeSelection({
+        scopeKeys: ["alpha", "beta"],
+        selectedValues: ["beta"],
+      }),
+    ).toEqual(["beta"]);
+  });
+
+  it("falls back to all projects when the last project is deselected", () => {
+    expect(
+      resolveSidebarProjectScopeSelection({ scopeKeys: ["alpha"], selectedValues: [] }),
+    ).toEqual([]);
+  });
+
+  it("clears every project when all projects is picked", () => {
+    expect(
+      resolveSidebarProjectScopeSelection({
+        scopeKeys: ["alpha", "beta"],
+        selectedValues: ["alpha", "beta", "all"],
+      }),
+    ).toEqual([]);
+  });
+
+  it("keeps showing all projects when all projects is picked again", () => {
+    expect(resolveSidebarProjectScopeSelection({ scopeKeys: [], selectedValues: [] })).toEqual([]);
   });
 });
 

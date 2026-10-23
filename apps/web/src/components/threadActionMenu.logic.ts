@@ -63,12 +63,25 @@ export function buildDraftActionMenuItems(options: {
   ];
 }
 
+function projectFilterLabel(filter: NonNullable<ThreadActionMenuState["projectFilter"]>): string {
+  if (filter.isActive) {
+    return filter.scopedProjectCount === 1
+      ? "Show all projects"
+      : `Remove ${filter.label} from filter`;
+  }
+  return filter.scopedProjectCount === 0
+    ? `Filter by ${filter.label}`
+    : `Add ${filter.label} to filter`;
+}
+
 export interface ThreadActionMenuState {
   readonly canOperate: boolean;
   readonly branch: string | null;
   readonly projectFilter: {
     readonly label: string;
     readonly isActive: boolean;
+    /** How many projects the list is filtered to; 0 means all projects. */
+    readonly scopedProjectCount: number;
   } | null;
   readonly isPinned: boolean;
   readonly isSettled: boolean;
@@ -163,9 +176,7 @@ export function buildThreadActionMenuItems(
       ? [
           {
             id: "filter-by-project" as const,
-            label: state.projectFilter.isActive
-              ? "Show all projects"
-              : `Filter by ${state.projectFilter.label}`,
+            label: projectFilterLabel(state.projectFilter),
             icon: "folder-tree",
           },
         ]
