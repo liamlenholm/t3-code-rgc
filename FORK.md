@@ -23,6 +23,10 @@ Each feature is developed on its own branch and merged into `main` by pull reque
     settings are hidden.
   - Server: `apps/server/src/preview/DockerComposeServers.ts`. UI: `apps/web/src/components/useDockerComposeStack.ts`
     and `settings/DockerComposeSettings.tsx`.
+- **Filter by several projects.** The sidebar's project filter picks any number of projects: clicking one adds or
+  removes it, **All projects** clears the filter, and a thread's right-click menu adds or removes its project. An
+  older single-project filter carries over. Works in the Mac and Linux desktop apps and the web app; mobile keeps
+  its single-project filter.
 
 ## Working on the fork
 
