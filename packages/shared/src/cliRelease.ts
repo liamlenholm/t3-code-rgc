@@ -1,4 +1,6 @@
-const CLI_RELEASE_REPOSITORY = "pingdotgg/t3code";
+// Fork: runtimes (SSH environments, `t3 update`, install scripts) download from this
+// fork's releases, published by .github/workflows/fork-release.yml.
+const CLI_RELEASE_REPOSITORY = "liamlenholm/t3-code-rgc";
 export const CLI_RELEASES_PAGE_URL = `https://github.com/${CLI_RELEASE_REPOSITORY}/releases`;
 export const CLI_RELEASE_CHECKSUMS_FILE = "SHA256SUMS";
 export const CLI_RELEASE_BASE_URL_ENV = "T3CODE_RELEASE_BASE_URL";
