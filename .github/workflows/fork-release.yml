@@ -1,6 +1,7 @@
 name: Fork release
 
-# Publishes this fork's CLI runtime archives as a GitHub Release, the same assets
+# Publishes this fork's CLI runtime archives and unsigned desktop apps (macOS arm64
+# DMG, Linux x64 AppImage) as a GitHub Release. The archives are the same assets
 # upstream's release.yml attaches: t3-<version>-<platform>-<arch>.tar.gz plus
 # SHA256SUMS. The desktop app's SSH environments, `t3 update`, and the install
 # scripts download from this fork's releases (packages/shared/src/cliRelease.ts),
@@ -143,18 +144,94 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+  # Unsigned desktop apps built from the same tag. GITHUB_REPOSITORY is unset so
+  # the build has no update feed (like scripts/fork/build-mac.sh) and never
+  # auto-updates to an official release.
+  desktop:
+    name: Desktop ${{ matrix.platform }}-${{ matrix.arch }}
+    if: github.repository == 'liamlenholm/t3-code-rgc'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - {
+              platform: linux,
+              target: AppImage,
+              arch: x64,
+              runner: ubuntu-24.04,
+              rust_target: x86_64-unknown-linux-gnu,
+            }
+          - {
+              platform: mac,
+              target: dmg,
+              arch: arm64,
+              runner: macos-15,
+              rust_target: aarch64-apple-darwin,
+            }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          sparse-checkout: |
+            /*
+            !/.repos/
+          sparse-checkout-cone-mode: false
+
+      - name: Read version
+        shell: bash
+        run: echo "VERSION=$(node -p 'require("./apps/server/package.json").version')" >> "$GITHUB_ENV"
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: false
+
+      - name: Install dependencies
+        run: vp install --filter=@t3tools/desktop... --filter=t3... --filter=@t3tools/scripts...
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.rust_target }}
+
+      - name: Install Linux desktop build libraries
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config imagemagick
+
+      - name: Build desktop artifact
+        shell: bash
+        run: |
+          unset GITHUB_REPOSITORY T3CODE_DESKTOP_UPDATE_REPOSITORY
+          vp run dist:desktop:artifact --platform "${{ matrix.platform }}" --target "${{ matrix.target }}" \
+            --arch "${{ matrix.arch }}" --build-version "$VERSION" --verbose
+
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            release/*.dmg
+            release/*.AppImage
+          if-no-files-found: error
+          retention-days: 3
+
   release:
     name: Publish release
-    needs: cli_archive
+    needs: [cli_archive, desktop]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write
     steps:
-      - name: Download CLI archives
+      - name: Download CLI archives and desktop apps
         uses: actions/download-artifact@v8
         with:
-          pattern: cli-*
           path: release-assets
           merge-multiple: true
 
