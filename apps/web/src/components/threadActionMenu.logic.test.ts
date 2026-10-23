@@ -122,15 +122,25 @@ describe("buildThreadActionMenuItems", () => {
     expect(
       buildThreadActionMenuItems({
         ...baseState,
-        projectFilter: { label: "Beta Project", isActive: false },
+        projectFilter: { label: "Beta Project", isActive: false, scopedProjectCount: 0 },
       }).find((item) => item.id === "filter-by-project"),
     ).toMatchObject({ label: "Filter by Beta Project", icon: "folder-tree" });
+  });
+
+  it("adds to or removes from a filter that spans several projects", () => {
+    const label = (isActive: boolean, scopedProjectCount: number) =>
+      buildThreadActionMenuItems({
+        ...baseState,
+        projectFilter: { label: "Beta Project", isActive, scopedProjectCount },
+      }).find((item) => item.id === "filter-by-project")?.label;
+    expect(label(false, 2)).toBe("Add Beta Project to filter");
+    expect(label(true, 2)).toBe("Remove Beta Project from filter");
   });
 
   it("offers the way back to all projects once the list is scoped", () => {
     const items = buildThreadActionMenuItems({
       ...baseState,
-      projectFilter: { label: "Beta Project", isActive: true },
+      projectFilter: { label: "Beta Project", isActive: true, scopedProjectCount: 1 },
     });
     const filterIndex = items.findIndex((candidate) => candidate.id === "filter-by-project");
     expect(items[filterIndex]).toMatchObject({ label: "Show all projects", icon: "folder-tree" });

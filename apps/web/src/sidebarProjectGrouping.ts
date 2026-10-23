@@ -84,6 +84,24 @@ export function resolveSidebarProjectScopeKey(input: {
   return group?.projectKey ?? (input.canClearMissingScope ? null : input.key);
 }
 
+// Returns `input.keys` itself when nothing resolves differently, so callers can
+// compare by identity before writing the persisted scope back.
+export function resolveSidebarProjectScopeKeys(input: {
+  readonly groups: ReadonlyArray<SidebarProjectSnapshot>;
+  readonly keys: readonly string[];
+  readonly settings?: ProjectGroupingSettings;
+  readonly canClearMissingScope?: boolean;
+}): readonly string[] {
+  const resolved = new Set<string>();
+  for (const key of input.keys) {
+    const next = resolveSidebarProjectScopeKey({ ...input, key });
+    if (next !== null) resolved.add(next);
+  }
+  const unchanged =
+    resolved.size === input.keys.length && input.keys.every((key) => resolved.has(key));
+  return unchanged ? input.keys : [...resolved];
+}
+
 export function buildPhysicalToLogicalProjectKeyMap(input: {
   projects: ReadonlyArray<Project>;
   settings: ProjectGroupingSettings;

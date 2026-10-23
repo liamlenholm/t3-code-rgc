@@ -14,6 +14,7 @@ import {
   buildSidebarProjectSnapshots,
   projectGroupsSpanEnvironments,
   resolveSidebarProjectScopeKey,
+  resolveSidebarProjectScopeKeys,
   getSidebarProjectSettingsKey,
 } from "./sidebarProjectGrouping";
 import { orderItemsByPreferredIds } from "./components/Sidebar.logic";
@@ -174,6 +175,44 @@ describe("environment grouping", () => {
     expect(
       resolveSidebarProjectScopeKey({ groups, key: "removed", canClearMissingScope: true }),
     ).toBeNull();
+  });
+
+  it("resolves a multi-project scope and reports no change by identity", () => {
+    const projects = [
+      makeProject({ title: "Alpha", workspaceRoot: "/alpha" }),
+      makeProject({ id: ProjectId.make("beta"), title: "Beta", workspaceRoot: "/beta" }),
+      makeProject({ id: ProjectId.make("scratch"), title: "No project", workspaceRoot: "/s" }),
+    ];
+    const build = (scratch: boolean) =>
+      buildSidebarProjectSnapshots({
+        projects: projects.map((project) =>
+          scratch && project.id === "scratch" ? { ...project, isScratch: true as const } : project,
+        ),
+        groupScratchProjects: true,
+        settings: defaultGroupingSettings,
+        primaryEnvironmentId,
+        resolveEnvironmentLabel: () => null,
+      });
+    const groups = build(true);
+    const [alphaKey, betaKey, scratchKey] = groups.map((group) => group.projectKey);
+    const current = [alphaKey!, betaKey!];
+    expect(resolveSidebarProjectScopeKeys({ groups, keys: current })).toBe(current);
+
+    const oldScratchKey = derivePhysicalProjectKey(projects[2]!);
+    const persisted = [betaKey!, oldScratchKey, "removed"];
+    expect(resolveSidebarProjectScopeKeys({ groups: build(false), keys: persisted })).toBe(
+      persisted,
+    );
+    expect(
+      resolveSidebarProjectScopeKeys({ groups, keys: persisted, canClearMissingScope: true }),
+    ).toEqual([betaKey, scratchKey]);
+    expect(
+      resolveSidebarProjectScopeKeys({
+        groups,
+        keys: [scratchKey!, oldScratchKey],
+        canClearMissingScope: true,
+      }),
+    ).toEqual([scratchKey]);
   });
 
   it("does not migrate an ordinary physical filter into a repository group", () => {

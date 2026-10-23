@@ -1051,6 +1051,28 @@ export function filterSidebarProjectScopeItems<TItem extends { readonly value: s
   return input.items.filter((item) => item.value !== "all" && input.matches(item, query));
 }
 
+export function toggleSidebarProjectScopeKey(
+  scopeKeys: readonly string[],
+  projectKey: string,
+): string[] {
+  return scopeKeys.includes(projectKey)
+    ? scopeKeys.filter((key) => key !== projectKey)
+    : [...scopeKeys, projectKey];
+}
+
+// The picker shows "All projects" as selected while no project is, so the
+// multi-select value it reports back still carries that entry. Picking it
+// clears the filter; picking any project drops it.
+export function resolveSidebarProjectScopeSelection(input: {
+  readonly scopeKeys: readonly string[];
+  readonly selectedValues: readonly string[];
+}): string[] {
+  const projectKeys = input.selectedValues.filter((value) => value !== "all");
+  const pickedAllProjects =
+    input.scopeKeys.length > 0 && projectKeys.length < input.selectedValues.length;
+  return pickedAllProjects ? [] : projectKeys;
+}
+
 export interface SidebarProjectScopeMenuState {
   readonly open: boolean;
   readonly query: string;
