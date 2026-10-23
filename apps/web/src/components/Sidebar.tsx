@@ -1,6 +1,7 @@
 import { type EnvironmentId, type ScopedProjectRef } from "@t3tools/contracts";
 import type { EnvironmentServerConfig } from "@t3tools/client-runtime/connection";
 import { ThreadHoverCard, ThreadHoverCardPopup } from "./ThreadHoverCard";
+import { ThreadDockerComposeLinks } from "./ThreadDockerComposeLinks";
 import { CollapsibleSectionHeader } from "./ui/collapsible-section-header";
 import { ThreadTerminalStatusButton } from "./ThreadStatusIndicators";
 import { ThreadContextDragGhost } from "./chat/ThreadContextDragGhost";
@@ -1003,6 +1004,12 @@ function SidebarThreadTooltip({
             <MiddleTruncate value={thread.branch} className="flex" />
           </div>
         ) : null}
+        <ThreadDockerComposeLinks
+          environmentId={thread.environmentId}
+          projectId={thread.projectId}
+          threadId={thread.id}
+          workspaceRoot={thread.worktreePath ?? project?.workspaceRoot ?? null}
+        />
         {branchMismatch ? (
           <div className="flex min-w-0 items-start gap-2 text-warning">
             <CircleAlertIcon aria-hidden className="mt-0.5 size-3 shrink-0 stroke-current" />

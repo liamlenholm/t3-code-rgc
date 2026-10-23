@@ -275,6 +275,12 @@ import {
   PreviewSessionSnapshot,
 } from "./preview.ts";
 import {
+  DockerComposeServerList,
+  DockerComposeServersInput,
+  DockerComposeServiceList,
+  DockerComposeServicesInput,
+} from "./dockerCompose.ts";
+import {
   DeviceActionInput,
   DeviceCloseInput,
   DeviceConfigureInput,
@@ -456,6 +462,8 @@ export const WS_METHODS = {
   previewRefresh: "preview.refresh",
   previewClose: "preview.close",
   previewList: "preview.list",
+  previewDockerComposeServers: "preview.dockerComposeServers",
+  previewDockerComposeServices: "preview.dockerComposeServices",
   previewClearProfile: "preview.clearProfile",
   previewReportProfiles: "preview.reportProfiles",
   previewReportStatus: "preview.reportStatus",
@@ -1530,6 +1538,18 @@ const WsPreviewListRpc = Rpc.make(WS_METHODS.previewList, {
   error: EnvironmentAuthorizationError,
 });
 
+const WsPreviewDockerComposeServersRpc = Rpc.make(WS_METHODS.previewDockerComposeServers, {
+  payload: DockerComposeServersInput,
+  success: DockerComposeServerList,
+  error: EnvironmentAuthorizationError,
+});
+
+const WsPreviewDockerComposeServicesRpc = Rpc.make(WS_METHODS.previewDockerComposeServices, {
+  payload: DockerComposeServicesInput,
+  success: DockerComposeServiceList,
+  error: EnvironmentAuthorizationError,
+});
+
 const WsPreviewClearProfileRpc = Rpc.make(WS_METHODS.previewClearProfile, {
   payload: PreviewClearProfileInput,
   error: Schema.Union([PreviewClearProfileError, EnvironmentAuthorizationError]),
@@ -2042,6 +2062,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsPreviewRefreshRpc,
   WsPreviewCloseRpc,
   WsPreviewListRpc,
+  WsPreviewDockerComposeServersRpc,
+  WsPreviewDockerComposeServicesRpc,
   WsPreviewClearProfileRpc,
   WsPreviewReportProfilesRpc,
   WsPreviewReportStatusRpc,

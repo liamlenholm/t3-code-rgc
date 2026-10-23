@@ -26,6 +26,16 @@ export function createPreviewEnvironmentAtoms<R, E>(
       tag: WS_METHODS.previewList,
       staleTimeMs: 5_000,
     }),
+    dockerComposeServers: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:preview:docker-compose-servers",
+      tag: WS_METHODS.previewDockerComposeServers,
+      staleTimeMs: 5_000,
+    }),
+    dockerComposeServices: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:preview:docker-compose-services",
+      tag: WS_METHODS.previewDockerComposeServices,
+      staleTimeMs: 30_000,
+    }),
     events: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
       label: "environment-data:preview:events",
       tag: WS_METHODS.subscribePreviewEvents,

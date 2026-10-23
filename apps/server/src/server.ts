@@ -71,6 +71,7 @@ import * as DeviceService from "./device/DeviceService.ts";
 import * as DeviceHubProxy from "./device/DeviceHubProxy.ts";
 import * as PreviewManager from "./preview/Manager.ts";
 import * as PortScanner from "./preview/PortScanner.ts";
+import * as DockerComposeServers from "./preview/DockerComposeServers.ts";
 import * as ServerBrowser from "./preview/ServerBrowser.ts";
 import * as DesktopBrowserChannel from "./preview/DesktopBrowserChannel.ts";
 import * as ServerBrowserStream from "./preview/ServerBrowserStream.ts";
@@ -429,6 +430,13 @@ const layerTerminal = TerminalManager.layer.pipe(
 const layerPreview = Layer.empty.pipe(
   Layer.provideMerge(PreviewManager.layer),
   Layer.provideMerge(layerPortScanner),
+  Layer.provideMerge(
+    DockerComposeServers.layer.pipe(
+      Layer.provide(ProcessRunner.layer),
+      Layer.provide(layerServerSettings),
+      Layer.provide(layerKnownWorkspaces),
+    ),
+  ),
 );
 
 const layerDevice = DeviceService.layer.pipe(

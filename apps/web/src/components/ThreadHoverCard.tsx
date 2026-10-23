@@ -7,7 +7,9 @@ export function ThreadHoverCardPopup({ className, ...props }: ComponentProps<typ
     <TooltipPopup
       {...props}
       variant="glass"
-      className={cn("max-w-80 text-left whitespace-normal", className)}
+      // The tooltip positioner ignores the pointer; hover cards opt back in so their links
+      // stay reachable and Base UI keeps the card open while the pointer is inside it.
+      className={cn("pointer-events-auto max-w-80 text-left whitespace-normal", className)}
     />
   );
 }

@@ -19,6 +19,7 @@ import ProjectScriptsControl, {
 import { memo, type ComponentProps } from "react";
 import { ThreadDetailsCard } from "./ThreadDetailsCard";
 import { OpenInPicker } from "./OpenInPicker";
+import { ThreadDockerComposeAppControl } from "./ThreadDockerComposeAppControl";
 import { ThreadDetailsSection } from "./ThreadDetailsSection";
 import { ThreadAutomationsPanel } from "./ThreadAutomationsPanel";
 import { ThreadRelationshipsPanel } from "./ThreadRelationshipsControl";
@@ -127,6 +128,15 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
                   autoEnvironmentLabel={props.autoEnvironmentLabel}
                   onAutoEnvironment={props.onAutoEnvironment}
                   {...branchToolbarProps}
+                />
+              ) : null}
+
+              {density !== "essential" ? (
+                <ThreadDockerComposeAppControl
+                  environmentId={props.environmentId}
+                  projectId={props.projectId}
+                  threadId={props.threadId}
+                  workspaceRoot={props.gitCwd}
                 />
               ) : null}
 

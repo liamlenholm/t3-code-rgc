@@ -777,6 +777,27 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["agent opens browser device simulator pop into view hide"],
   },
   {
+    id: "docker-compose-links",
+    title: "Docker Compose links",
+    to: "/settings/integrations",
+    scope: "project-defaults",
+    searchTerms: ["docker compose container stack url hover card thread worktree show hide"],
+  },
+  {
+    id: "docker-compose-main-link",
+    title: "Main link",
+    to: "/settings/integrations",
+    scope: "project-defaults",
+    searchTerms: ["docker compose service port container frontend proxy web url"],
+  },
+  {
+    id: "docker-compose-link-path",
+    title: "Link path",
+    to: "/settings/integrations",
+    scope: "project-defaults",
+    searchTerms: ["docker compose url route dashboard page"],
+  },
+  {
     id: "automatic-pull",
     title: "Automatically pull",
     to: "/settings/source-control",

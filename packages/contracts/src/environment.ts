@@ -152,6 +152,9 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
       "server"`) and streams them over `/api/preview-stream`. Clients
       without a local browser runtime open server tabs here. */
   serverBrowser: Schema.optionalKey(Schema.Boolean),
+  /** Server answers the `preview.dockerCompose*` RPCs and stores the Docker Compose settings.
+      Absent on official builds, so clients hide the links and their settings. */
+  dockerComposeLinks: Schema.optionalKey(Schema.Boolean),
 });
 export type ExecutionEnvironmentCapabilities = typeof ExecutionEnvironmentCapabilities.Type;
 

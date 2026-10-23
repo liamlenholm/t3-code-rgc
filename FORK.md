@@ -8,6 +8,22 @@ Not intended for upstream PRs (`upstream` push is disabled).
 
 Each feature is developed on its own branch and merged into `main` by pull request.
 
+- **Docker Compose links.** A thread's sidebar hover card links the app its worktree's (or project root's) Compose
+  stack serves, and the thread details panel gets an **Open app** row above "Open in editor". Its menu opens any
+  other running service and sets the project's main link in place. Docker is only queried when the setting is on and
+  the workspace is a known project or worktree with a compose file, at its root or in `docker/`, `.docker/`,
+  `infra/`, `deploy/`, or `.devcontainer/`.
+  - Configured in **Settings → Integrations → Docker Compose**: on/off, main link, and link path, at any settings
+    scope. With a project selected, the main link is picked from the services `docker compose config` reports
+    (falling back to `--no-interpolate` for projects that need a wrapper script). Automatic prefers
+    proxy/frontend/web-like services and never offers database or cache ports.
+  - The client builds the URL: `localhost` when it runs on the server's machine (which also allows ports bound to
+    127.0.0.1), the host it connected with over LAN or a tailnet, and the server's hostname over SSH or relay.
+  - Fork servers advertise the `dockerComposeLinks` capability; against an official server the links and their
+    settings are hidden.
+  - Server: `apps/server/src/preview/DockerComposeServers.ts`. UI: `apps/web/src/components/useDockerComposeStack.ts`
+    and `settings/DockerComposeSettings.tsx`.
+
 ## Working on the fork
 
 - **New feature:** branch from `main`, open a PR into `main` on this repo:
