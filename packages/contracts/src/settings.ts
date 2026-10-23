@@ -45,6 +45,7 @@ import {
   ProviderDriverKind,
 } from "./providerInstance.ts";
 import { PullRequestMergeMethod } from "./pullRequest.ts";
+import { DockerComposeLinkTarget } from "./dockerCompose.ts";
 
 export const TimestampFormat = Schema.Literals(["locale", "12-hour", "24-hour"]);
 export type TimestampFormat = typeof TimestampFormat.Type;
@@ -956,6 +957,9 @@ export const PROJECT_SCOPED_SERVER_SETTING_KEYS = [
   "sidebarAutoSettleKeepPullRequests",
   "continueThreadsAfterServerUpdate",
   "responseStreamingMode",
+  "dockerComposeLinksEnabled",
+  "dockerComposeLink",
+  "dockerComposeLinkPath",
 ] as const;
 export type ProjectScopedServerSettingKey = (typeof PROJECT_SCOPED_SERVER_SETTING_KEYS)[number];
 
@@ -999,6 +1003,9 @@ export const ProjectSettingsOverrides = Schema.Struct({
   sidebarAutoSettleKeepPullRequests: Schema.optionalKey(Schema.Boolean),
   continueThreadsAfterServerUpdate: Schema.optionalKey(Schema.Boolean),
   responseStreamingMode: Schema.optionalKey(ResponseStreamingMode),
+  dockerComposeLinksEnabled: Schema.optionalKey(Schema.Boolean),
+  dockerComposeLink: Schema.optionalKey(Schema.NullOr(DockerComposeLinkTarget)),
+  dockerComposeLinkPath: Schema.optionalKey(TrimmedString),
   providerInstances: Schema.optionalKey(
     Schema.Record(ProviderInstanceId, ProjectProviderInstanceOverride),
   ),
@@ -1024,6 +1031,7 @@ const NULLABLE_PROJECT_SETTINGS_OVERRIDES: ReadonlySet<ProjectScopedServerSettin
   "reviewGuideModelSelection",
   "pullRequestMergeMethod",
   "sidebarAutoSettleAfterDays",
+  "dockerComposeLink",
 ]);
 
 /** Reclaimable bytes from which the offline `t3 doctor` repair is worth suggesting. */
@@ -1246,6 +1254,18 @@ export const ServerSettings = Schema.Struct({
   pullRequestMergeMethod: Schema.NullOr(PullRequestMergeMethod).pipe(
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
+
+  /**
+   * The thread hover card links to the Docker Compose stack started from the
+   * thread's workspace. Off means Docker is never queried; on, it is queried
+   * only for workspaces that contain a compose file.
+   */
+  dockerComposeLinksEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  /** Null picks a frontend-like service, then the lowest published port. */
+  dockerComposeLink: Schema.NullOr(DockerComposeLinkTarget).pipe(
+    Schema.withDecodingDefault(Effect.succeed(null)),
+  ),
+  dockerComposeLinkPath: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
 
   // The driver-specific config blob is `Schema.Unknown` at this layer so
   // envelopes with unknown drivers (forks, downgrades, in-flight PR branches)
@@ -1500,6 +1520,9 @@ export const ServerSettingsPatch = Schema.Struct({
   branchNamingMode: Schema.optionalKey(BranchNamingMode),
   branchNamePrefix: Schema.optionalKey(TrimmedString),
   branchNameInstructions: Schema.optionalKey(TrimmedString),
+  dockerComposeLinksEnabled: Schema.optionalKey(Schema.Boolean),
+  dockerComposeLink: Schema.optionalKey(Schema.NullOr(DockerComposeLinkTarget)),
+  dockerComposeLinkPath: Schema.optionalKey(TrimmedString),
   removeAgentCreditsOnMerge: Schema.optionalKey(Schema.Boolean),
   sourceControlWritingStyle: Schema.optionalKey(
     Schema.Struct({

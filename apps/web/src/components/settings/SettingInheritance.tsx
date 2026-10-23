@@ -43,7 +43,7 @@ function formatValue(key: keyof ServerSettings, value: unknown): string {
       ? "Last selected"
       : key === "sidebarAutoSettleAfterDays"
         ? "Never"
-        : key === "defaultModelSelection"
+        : key === "defaultModelSelection" || key === "dockerComposeLink"
           ? "Automatic"
           : key === "sourceControlWriterModelSelection"
             ? "Text generation model"
@@ -76,6 +76,9 @@ function formatValue(key: keyof ServerSettings, value: unknown): string {
   if (Array.isArray(value)) return `${value.length} ${value.length === 1 ? "item" : "items"}`;
   if (typeof value === "object") {
     if ("model" in value && typeof value.model === "string") return value.model;
+    if ("service" in value && "containerPort" in value) {
+      return `${String(value.service)} · port ${String(value.containerPort)}`;
+    }
     if ("mode" in value && typeof value.mode === "string") {
       return WRITING_STYLE_LABELS[value.mode] ?? value.mode;
     }

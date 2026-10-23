@@ -193,6 +193,8 @@ const RPC_AGGREGATES = {
   [WS_METHODS.previewRefresh]: "preview",
   [WS_METHODS.previewClose]: "preview",
   [WS_METHODS.previewList]: "preview",
+  [WS_METHODS.previewDockerComposeServers]: "preview",
+  [WS_METHODS.previewDockerComposeServices]: "preview",
   [WS_METHODS.previewClearProfile]: "preview",
   [WS_METHODS.previewReportProfiles]: "preview",
   [WS_METHODS.previewReportStatus]: "preview",
