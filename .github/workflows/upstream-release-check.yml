@@ -23,7 +23,7 @@ concurrency:
 jobs:
   check:
     name: Check for a new upstream release
-    if: github.repository == 'liamlenholm/t3code'
+    if: github.repository == 'liamlenholm/t3-code-rgc'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

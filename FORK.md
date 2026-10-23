@@ -11,7 +11,7 @@ Each feature is developed on its own branch and merged into `main` by pull reque
 ## Working on the fork
 
 - **New feature:** branch from `main`, open a PR into `main` on this repo:
-  `gh pr create --repo liamlenholm/t3code --base main`. Don't bump versions on feature branches.
+  `gh pr create --repo liamlenholm/t3-code-rgc --base main`. Don't bump versions on feature branches.
 - **Shipping a build:** bump the version on `main` (see below), then build from `main`.
 
 ## How it runs
