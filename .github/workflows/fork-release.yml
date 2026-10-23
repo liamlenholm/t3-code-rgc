@@ -1,0 +1,180 @@
+name: Fork release
+
+# Publishes this fork's CLI runtime archives as a GitHub Release, the same assets
+# upstream's release.yml attaches: t3-<version>-<platform>-<arch>.tar.gz plus
+# SHA256SUMS. The desktop app's SSH environments, `t3 update`, and the install
+# scripts download from this fork's releases (packages/shared/src/cliRelease.ts),
+# so every app version shipped from main needs one.
+#
+# Trigger: push a tag `v<version>` matching apps/server/package.json, e.g.
+#   git tag v0.1.1-liam.2 && git push origin v0.1.1-liam.2
+# or run it from the Actions tab with an existing tag.
+
+on:
+  push:
+    tags:
+      - "v*-liam.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to release, e.g. v0.1.1-liam.2"
+        required: true
+
+concurrency:
+  group: fork-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  cli_archive:
+    name: CLI archive ${{ matrix.platform }}-${{ matrix.arch }}
+    if: github.repository == 'liamlenholm/t3-code-rgc'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - {
+              platform: linux,
+              arch: x64,
+              runner: ubuntu-24.04,
+              rust_target: x86_64-unknown-linux-gnu,
+              resource_key: linux-x64,
+            }
+          - {
+              platform: linux,
+              arch: arm64,
+              runner: ubuntu-24.04-arm,
+              rust_target: aarch64-unknown-linux-gnu,
+              resource_key: linux-arm64,
+            }
+          - {
+              platform: mac,
+              arch: arm64,
+              runner: macos-15,
+              rust_target: aarch64-apple-darwin,
+              resource_key: darwin-arm64,
+            }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          sparse-checkout: |
+            /*
+            !/.repos/
+          sparse-checkout-cone-mode: false
+
+      - name: Check tag matches package version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p 'require("./apps/server/package.json").version')"
+          if [[ "v$version" != "$RELEASE_TAG" ]]; then
+            echo "Tag $RELEASE_TAG does not match apps/server/package.json version $version." >&2
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: false
+
+      - name: Install dependencies
+        run: vp install --filter=t3... --filter=@t3tools/web... --filter=@t3tools/scripts...
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.rust_target }}
+
+      - name: Build resource monitor
+        run: cargo build --locked --release --manifest-path native/resource-monitor/Cargo.toml --target "${{ matrix.rust_target }}"
+
+      - name: Build server and web client
+        run: vp run --filter t3 build
+
+      - name: Apply web client branding
+        run: node scripts/apply-web-brand-assets.ts production apps/server/dist/client
+
+      # Keep in step with SEA_NODE_VERSION in apps/server/vite.config.ts.
+      - name: Build CLI single-executable
+        env:
+          VP_NODE_VERSION: "26.8.2"
+          T3CODE_TELEMETRY_CHANNEL: dev
+        run: node apps/server/scripts/cli.ts build-exe --verbose
+
+      - name: Stage resource monitor
+        shell: bash
+        run: |
+          set -euo pipefail
+          target_dir="$RUNNER_TEMP/cli-resource-monitor/${{ matrix.resource_key }}"
+          mkdir -p "$target_dir"
+          cp "native/resource-monitor/target/${{ matrix.rust_target }}/release/t3-resource-monitor" "$target_dir/"
+
+      # No signing secrets: macOS archives are signed ad hoc, which runs from curl/tar installs.
+      - name: Build CLI archive
+        run: |
+          node scripts/build-cli-archive.ts \
+            --platform "${{ matrix.platform }}" \
+            --arch "${{ matrix.arch }}" \
+            --version "$VERSION" \
+            --resource-monitor-dir "$RUNNER_TEMP/cli-resource-monitor" \
+            --output-dir release-cli
+
+      - name: Smoke-test CLI archive
+        run: node scripts/smoke-cli-archive.ts --archive release-cli/* --expect-version "$VERSION"
+
+      - name: Upload CLI archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: cli-${{ matrix.platform }}-${{ matrix.arch }}
+          path: release-cli/*
+          if-no-files-found: error
+          retention-days: 3
+
+  release:
+    name: Publish release
+    needs: cli_archive
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download CLI archives
+        uses: actions/download-artifact@v8
+        with:
+          pattern: cli-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Write SHA256SUMS
+        working-directory: release-assets
+        run: |
+          set -euo pipefail
+          sha256sum t3-*.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+
+      # Prerelease so it never shows as the fork's "latest"; the launcher fetches by exact tag.
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$RELEASE_TAG" release-assets/* --repo "$GITHUB_REPOSITORY" \
+              --title "$RELEASE_TAG" --prerelease --verify-tag \
+              --notes "Fork runtime archives for $RELEASE_TAG."
+          fi

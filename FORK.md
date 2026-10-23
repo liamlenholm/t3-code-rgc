@@ -36,27 +36,38 @@ Each feature is developed on its own branch and merged into `main` by pull reque
 
 ## How it runs
 
-The Mac app launches the server on the remote Linux host over SSH, using the runtime in
-`~/.t3/runtime/versions/<app version>/`. It downloads an official release only when that folder is missing,
-so both sides must be built with the same version, a SemVer prerelease such as `0.1.1-liam.1`, stored in
-`apps/server/package.json`.
+A desktop app adding an SSH environment launches the server on the remote host using the runtime in
+`~/.t3/runtime/versions/<app version>/`. When that folder is missing, the launcher downloads the CLI archive for
+that exact version from **this fork's** GitHub Releases (`CLI_RELEASE_REPOSITORY` in
+`packages/shared/src/cliRelease.ts`; `t3 update` and the install scripts use the same source). So every version
+shipped from `main` needs a release here, and every app and host runs the same version, a SemVer prerelease such as
+`0.1.1-liam.1`, stored in `apps/server/package.json`.
 
-1. **Linux runtime** (on the remote host): `scripts/fork/build-linux-runtime.sh` builds the server and web bundle,
-   packs it like an official release, smoke-tests it, and installs it into `~/.t3/runtime/versions/<version>/`.
-2. **Mac app** (on the Mac): `scripts/fork/build-mac.sh` builds an unsigned DMG in `release/`. Local builds
-   have no update feed, so the app never auto-updates to an official release.
-3. **Cut over:** quit the app, install the forked DMG over it (same name and bundle ID, so settings and
-   connections carry over), and reopen it. If the app adopts the server that's already running instead of
-   restarting it (check `readlink /proc/$(ss -H -ltnp | grep -oP ':3773 .*pid=\K\d+')/exe` on the remote),
-   stop that `t3 serve` process by its PID and restart the app: the launcher then starts the new runtime.
-   Restarting the server interrupts any agent threads running on that host.
+1. **Bump and tag `main`:**
+
+   ```bash
+   node scripts/update-release-package-versions.ts 0.1.1-liam.2
+   git commit -am "chore: version 0.1.1-liam.2"
+   git tag v0.1.1-liam.2 && git push origin main v0.1.1-liam.2
+   ```
+
+2. **Release:** the tag runs `.github/workflows/fork-release.yml`, which builds, smoke-tests, and publishes
+   `t3-<version>-{linux-x64,linux-arm64,darwin-arm64}.tar.gz` plus `SHA256SUMS` as a prerelease. Wait for it
+   before installing the new app: until it exists, adding an SSH host fails with a curl 404. Re-run it from the
+   Actions tab with the tag if it fails.
+3. **Desktop apps:** build from the same commit: `scripts/fork/build-mac.sh` (unsigned DMG in `release/`) on a Mac,
+   or `vp run dist:desktop:linux` for the AppImage. Local builds have no update feed, so they never auto-update to an
+   official release.
+4. **Cut over:** quit the app, install the new build over it (same name and bundle ID, so settings and connections
+   carry over), and reopen it. Remote hosts download the new runtime on the next connect. If the app adopts the
+   server that's already running instead of restarting it (check
+   `readlink /proc/$(ss -H -ltnp | grep -oP ':3773 .*pid=\K\d+')/exe` on the remote), stop that `t3 serve` process by
+   its PID and restart the app. Restarting the server interrupts any agent threads running on that host.
 
 Always bump the version when shipping a new build: the launcher only switches runtimes when the version changes.
 
-```bash
-node scripts/update-release-package-versions.ts 0.1.1-liam.2
-git commit -am "chore: version 0.1.1-liam.2"
-```
+`scripts/fork/build-linux-runtime.sh` still builds and installs a Linux runtime locally, for testing an untagged
+build on a Linux host without publishing it.
 
 ## Syncing with upstream
 
