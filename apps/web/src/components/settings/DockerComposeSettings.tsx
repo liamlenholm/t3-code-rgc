@@ -3,6 +3,7 @@ import * as Option from "effect/Option";
 import { useRef } from "react";
 
 import { isDesktopLocalConnectionTarget } from "../../connection/desktopLocal";
+import { useServerConfigs } from "../../state/entities";
 import { previewEnvironment } from "../../state/preview";
 import { useEnvironmentQuery } from "../../state/query";
 import { usePreparedConnection } from "../../state/session";
@@ -205,11 +206,18 @@ function DockerComposeLinkPathSetting() {
 }
 
 export function DockerComposeSettings() {
-  const { scope } = useSettingsScope();
+  const { scope, targets } = useSettingsScope();
+  const serverConfigs = useServerConfigs();
   const enabled = useScopedSettings((settings) => settings.dockerComposeLinksEnabled);
   const enabledMixed = useScopedSettingsMixed(["dockerComposeLinksEnabled"]);
   const updateSettings = useUpdateScopedSettings();
   const isProjectScope = scope.kind === "project" || scope.kind === "checkout";
+  // Official servers drop these settings, so offer them only where a target stores them.
+  const supported = targets.some(
+    (target) =>
+      serverConfigs.get(target.environmentId)?.environment.capabilities.dockerComposeLinks === true,
+  );
+  if (!supported) return null;
 
   return (
     <SettingsSection id="docker-compose" title="Docker Compose">

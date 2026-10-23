@@ -434,6 +434,7 @@ const layerPreview = Layer.empty.pipe(
     DockerComposeServers.layer.pipe(
       Layer.provide(ProcessRunner.layer),
       Layer.provide(layerServerSettings),
+      Layer.provide(layerKnownWorkspaces),
     ),
   ),
 );

@@ -18,11 +18,13 @@ import * as Path from "effect/Path";
 
 import * as ProcessRunner from "../processRunner.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import * as KnownWorkspaces from "../workspace/KnownWorkspaces.ts";
 
 /**
  * Links a thread to the Docker Compose stack running from its worktree (or project root).
  * Compose labels every container with the directory it ran from, which is the directory of
- * the workspace's compose file. Workspaces without a compose file never reach Docker.
+ * the workspace's compose file. Workspaces without a compose file never reach Docker, and
+ * neither do paths outside a known workspace: the client names the path.
  */
 export class DockerComposeServers extends Context.Service<
   DockerComposeServers,
@@ -218,12 +220,21 @@ export const make = Effect.gen(function* () {
   const serverSettings = yield* ServerSettings.ServerSettingsService;
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const knownWorkspaces = yield* KnownWorkspaces.KnownWorkspaces;
   const machineHostname = (yield* HostProcess.Hostname).split(".")[0] || "localhost";
 
   /** Reads the workspace root, and only the known subdirectories it contains. */
   const findComposeFile = Effect.fn("DockerComposeServers.findComposeFile")(function* (
     workspaceRoot: string,
   ) {
+    // An unknown path reads as "no compose file", so the answer reveals nothing about it.
+    const known = yield* knownWorkspaces
+      .assertContains(workspaceRoot)
+      .pipe(
+        Effect.as(true),
+        Effect.catchTags({ UnknownWorkspaceError: () => Effect.succeed(false) }),
+      );
+    if (!known) return null;
     const readNames = (directory: string) =>
       fileSystem
         .readDirectory(directory)

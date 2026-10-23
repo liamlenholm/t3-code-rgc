@@ -14,8 +14,8 @@ import {
 
 /**
  * The Docker Compose stack running from a thread's workspace, with the host this client reaches
- * its ports on and the main link per the project's live settings. Null when the setting is off,
- * before the server answers, or without a workspace. Mount callers only while visible: each
+ * its ports on and the main link per the project's live settings. Null when the server lacks the
+ * feature, the setting is off, before the server answers, or without a workspace. Mount callers only while visible: each
  * query asks the environment's Docker daemon.
  */
 export function useDockerComposeStack(input: {
@@ -23,11 +23,14 @@ export function useDockerComposeStack(input: {
   readonly projectId: ProjectId;
   readonly workspaceRoot: string | null;
 }) {
-  const settings = useServerConfigs().get(input.environmentId)?.settings ?? null;
+  const config = useServerConfigs().get(input.environmentId);
+  const settings = config?.settings ?? null;
   const projectSettings = settings
     ? resolveProjectSettings(settings, input.projectId).settings
     : null;
-  const enabled = projectSettings?.dockerComposeLinksEnabled ?? true;
+  const enabled =
+    config?.environment.capabilities.dockerComposeLinks === true &&
+    (projectSettings?.dockerComposeLinksEnabled ?? true);
   const query = useEnvironmentQuery(
     input.workspaceRoot === null || !enabled
       ? null

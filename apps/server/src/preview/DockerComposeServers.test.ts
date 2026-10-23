@@ -10,6 +10,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import * as ProcessRunner from "../processRunner.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import * as KnownWorkspaces from "../workspace/KnownWorkspaces.ts";
 import {
   DockerComposeServers,
   layer as layerDockerComposeServers,
@@ -145,8 +146,11 @@ const PS_OUTPUT = "proxy\t0.0.0.0:27036->84/tcp, [::]:27036->84/tcp\n";
 const makeHarness = (input: {
   readonly files: Readonly<Record<string, ReadonlyArray<string>>>;
   readonly settings?: Parameters<typeof ServerSettings.ServerSettingsService.layerTest>[0];
+  readonly knownWorkspaces?: ReadonlyArray<string>;
 }) => {
   const runs: Array<ProcessRunner.ProcessRunInput> = [];
+  const reads: Array<string> = [];
+  const known = new Set(input.knownWorkspaces ?? ["/repo"]);
   const layer = layerDockerComposeServers.pipe(
     Layer.provide(
       Layer.mergeAll(
@@ -166,15 +170,25 @@ const makeHarness = (input: {
           },
         }),
         ServerSettings.ServerSettingsService.layerTest(input.settings),
+        Layer.succeed(KnownWorkspaces.KnownWorkspaces, {
+          contains: (realPath) => Effect.succeed(known.has(realPath)),
+          assertContains: (cwd) =>
+            known.has(cwd)
+              ? Effect.void
+              : Effect.fail(new KnownWorkspaces.UnknownWorkspaceError({ cwd })),
+        }),
         FileSystem.layerNoop({
-          readDirectory: (directory) => Effect.succeed([...(input.files[directory] ?? [])]),
+          readDirectory: (directory) => {
+            reads.push(directory);
+            return Effect.succeed([...(input.files[directory] ?? [])]);
+          },
         }),
         Path.layer,
       ),
     ),
     Layer.provide(Layer.succeed(HostProcess.Hostname, "devbox.tailnet.ts.net")),
   );
-  return { runs, layer };
+  return { runs, reads, layer };
 };
 
 describe("DockerComposeServers.list", () => {
@@ -207,6 +221,19 @@ describe("DockerComposeServers.list", () => {
     return Effect.gen(function* () {
       const result = yield* (yield* DockerComposeServers).list({ workspaceRoot: "/repo" });
       expect(result.ports).toEqual([]);
+      expect(runs).toEqual([]);
+    }).pipe(Effect.provide(layer));
+  });
+
+  effectIt.effect("never reads or runs Docker for a path outside a known workspace", () => {
+    const { runs, reads, layer } = makeHarness({
+      files: { "/elsewhere": ["compose.yaml"] },
+    });
+    return Effect.gen(function* () {
+      const servers = yield* DockerComposeServers;
+      expect((yield* servers.list({ workspaceRoot: "/elsewhere" })).ports).toEqual([]);
+      expect((yield* servers.services({ workspaceRoot: "/elsewhere" })).composeFile).toBeNull();
+      expect(reads).toEqual([]);
       expect(runs).toEqual([]);
     }).pipe(Effect.provide(layer));
   });
