@@ -1,0 +1,89 @@
+name: Upstream release check
+
+# Opens an issue when pingdotgg/t3code publishes a stable release newer than the fork's base.
+# Only reads upstream; never pushes or opens PRs there.
+on:
+  schedule:
+    # Mondays 07:17 UTC. Avoid minute zero, when GitHub scheduled jobs are busiest.
+    - cron: "17 7 * * 1"
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Pretend the fork is based on this version (e.g. 0.1.0)
+        required: false
+      dry_run:
+        description: Print the issue instead of opening it
+        type: boolean
+        default: false
+
+concurrency:
+  group: upstream-release-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check for a new upstream release
+    if: github.repository == 'liamlenholm/t3code'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    env:
+      UPSTREAM: https://github.com/pingdotgg/t3code
+      GH_TOKEN: ${{ github.token }}
+      BASE_OVERRIDE: ${{ inputs.base }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Compare with the latest stable upstream tag
+        run: |
+          set -euo pipefail
+          fork_base="v$(node -p "require('./apps/server/package.json').version.split('-')[0]")"
+          base="${BASE_OVERRIDE:+v$BASE_OVERRIDE}"
+          base="${base:-$fork_base}"
+          latest=$(git ls-remote --tags --refs "$UPSTREAM" 'v*' | sed 's#.*refs/tags/##' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          echo "Fork base: $base, latest stable upstream: $latest"
+          if [ "$(printf '%s\n%s\n' "$base" "$latest" | sort -V | tail -1)" = "$base" ]; then
+            echo "Up to date."
+            exit 0
+          fi
+
+          title="Upstream $latest released"
+          if gh issue list --state all --limit 200 --json title -q '.[].title' | grep -qxF "$title"; then
+            echo "Issue \"$title\" already exists."
+            exit 0
+          fi
+
+          git fetch --quiet --depth=1 --no-tags "$UPSTREAM" \
+            "refs/tags/$fork_base:refs/tags/$fork_base" "refs/tags/$base:refs/tags/$base" \
+            "refs/tags/$latest:refs/tags/$latest"
+          # Files the fork changed that upstream also changed: where merge conflicts can happen.
+          overlap=$(comm -12 \
+            <(git diff --name-only "$fork_base" HEAD | sort) \
+            <(git diff --name-only "$base" "$latest" | sort))
+
+          {
+            echo "pingdotgg/t3code released [$latest]($UPSTREAM/releases/tag/$latest). The fork is based on \`$base\`."
+            echo
+            echo "- Changes: $UPSTREAM/compare/$base...$latest"
+            echo "- Sync steps: [FORK.md](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/FORK.md#syncing-with-upstream)"
+            echo
+            if [ -n "$overlap" ]; then
+              echo "Files changed by both the fork and upstream (possible merge conflicts):"
+              echo
+              printf -- '- `%s`\n' $overlap
+            else
+              echo "Upstream didn't touch any file the fork changes, so the merge should be clean."
+            fi
+          } > issue.md
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run: would open \"$title\":"
+            cat issue.md
+          else
+            gh issue create --title "$title" --body-file issue.md
+          fi
